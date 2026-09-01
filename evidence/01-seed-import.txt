@@ -1,0 +1,17 @@
+SANITIZED POC EVIDENCE -- identifiers replaced with placeholders, facts preserved.
+
+Test: seed the POC database via the Cloud SQL Admin API (instances.import), no direct
+network connection to the instance.
+
+Command (shape):
+  POST https://sqladmin.googleapis.com/v1/projects/example-project/instances/example-instance/import
+  { "importContext": { "kind": "sql#importContext", "fileType": "SQL",
+    "uri": "gs://example-export-bucket/seed/seed.sql", "database": "example_db" } }
+
+Result (operation, polled to completion):
+  status: DONE
+  error field present: false
+  duration: ~10 seconds
+
+Proves: the seed dataset (tables, indexes, view, functions, trigger, stored
+procedure, and rows) loaded into the test database with no error.

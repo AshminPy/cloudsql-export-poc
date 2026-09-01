@@ -1,0 +1,15 @@
+SANITIZED POC EVIDENCE -- identifiers replaced with placeholders, facts preserved.
+
+Command: gcloud storage ls -l gs://example-export-bucket/exports/2026/09/01/
+
+Result:
+      2791  2026-09-01T21:01:06Z  gs://example-export-bucket/exports/2026/09/01/example_db-20260901T205819Z.sql.gz
+      2793  2026-09-01T21:04:56Z  gs://example-export-bucket/exports/2026/09/01/example_db-20260901T210219Z.sql.gz
+TOTAL: 2 objects, 5584 bytes
+
+Proves: two separate export runs (roughly 3.5 minutes apart) each produced a
+distinct, uniquely-timestamped object under the same date prefix -- no filename
+collision, no object overwritten. This is the direct fix for the fixed-filename
+reliability problem: Google's own Cloud SQL Admin API documentation states an export
+can be accepted and then fail if the target GCS object already exists, which a fixed
+filename risks on any repeated run.

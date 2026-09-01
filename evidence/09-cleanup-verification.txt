@@ -1,0 +1,37 @@
+SANITIZED POC EVIDENCE -- identifiers replaced with placeholders, facts preserved.
+
+Command: terraform destroy
+Result:  Destroy complete! Resources: 22 destroyed.
+
+Independent re-check (not trusting the destroy output alone):
+
+$ gcloud sql instances list --project=<project>
+(empty)
+
+$ gcloud storage buckets list --project=<project> | grep <name-prefix>
+(no match)
+
+$ gcloud scheduler jobs list --location=<region> --project=<project>
+(empty)
+
+$ gcloud workflows list --location=<region> --project=<project>
+(empty)
+
+$ gcloud iam service-accounts list --project=<project> | grep <name-prefix>
+(no match)
+
+$ gcloud iam roles list --project=<project> | grep <name-prefix>
+(no match -- active roles)
+
+$ gcloud iam roles list --project=<project> --show-deleted | grep <name-prefix>
+projects/<project>/roles/<prefix>_cloudsql_export_writer
+projects/<project>/roles/<prefix>_export_op_reader
+projects/<project>/roles/<prefix>_export_trigger
+(soft-deleted -- standard ~7-day GCP retention before permanent purge, not a
+ cleanup failure)
+
+Pre-existing project resources (unrelated to this POC) confirmed untouched: the same
+5 buckets that existed before this POC's first deployment were still present,
+unchanged, after destroy -- none added, none removed.
+
+Local cleanup: downloaded dump files removed, local PostgreSQL server stopped.

@@ -1,0 +1,10 @@
+# Cron alternative to the systemd timer, for hosts without systemd (or where the team
+# standardizes on cron). Same script, same env file.
+#
+# Runs every 10 minutes rather than a fixed "wait N minutes after the schedule"
+# assumption -- download_export.sh is idempotent (tracks the last object it
+# downloaded, exits cleanly if nothing new exists yet), so frequent runs are safe and
+# never double-process an export.
+#
+# Install as the pgexport user's crontab: crontab -u pgexport -e
+*/10 * * * * /opt/pgexport/download_export.sh >> /var/log/pgexport-download.log 2>&1

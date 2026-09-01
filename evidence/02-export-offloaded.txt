@@ -1,0 +1,21 @@
+SANITIZED POC EVIDENCE -- identifiers replaced with placeholders, facts preserved.
+
+Test: trigger an offloaded (serverless) Cloud SQL export via the Admin API
+(instances.export, offload: true), poll the operation to completion.
+
+Command (shape):
+  POST https://sqladmin.googleapis.com/v1/projects/example-project/instances/example-instance/export
+  { "exportContext": { "kind": "sql#exportContext", "fileType": "SQL",
+    "uri": "gs://example-export-bucket/exports/.../example_db-<timestamp>.sql.gz",
+    "databases": ["example_db"], "offload": true } }
+
+Result (operation, polled to completion):
+  status: DONE
+  error field present: false
+  duration: ~2 minutes 35 seconds (start to finish)
+
+Proves: the offloaded export completed successfully. The multi-minute duration is
+direct evidence of Google's documented trade-off -- offloaded export takes longer
+than a standard export because a temporary instance has to be provisioned first
+(source: cloud.google.com/blog/products/databases/introducing-cloud-sql-serverless-exports).
+Compare against 03-export-nonoffloaded.txt for the same export without offloading.

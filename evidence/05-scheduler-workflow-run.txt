@@ -1,0 +1,31 @@
+SANITIZED POC EVIDENCE -- identifiers replaced with placeholders, facts preserved.
+
+Test: manually trigger the Cloud Scheduler job (gcloud scheduler jobs run) and
+confirm the full Scheduler -> Cloud Workflows -> Cloud SQL export -> GCS chain
+actually works and actually waits for completion, rather than firing and forgetting.
+
+Command: gcloud scheduler jobs run example-scheduled-export --location=<region>
+
+Execution 1 (gcloud workflows executions describe):
+  state while running: ACTIVE (confirmed mid-run, proving it polls rather than
+  returning immediately)
+  state at completion: SUCCEEDED
+  result: {"export_uri":"gs://example-export-bucket/exports/2026/09/01/example_db-20260901T205819Z.sql.gz",
+           "object_path":"exports/2026/09/01/example_db-20260901T205819Z.sql.gz",
+           "status":"DONE"}
+  underlying Cloud SQL export operation confirmed via `gcloud sql operations list`:
+  status RUNNING at the exact moment the workflow started, later DONE.
+
+Execution 2 (triggered ~4 minutes later, while testing repeat-run safety):
+  An overlapping third trigger attempt failed fast (~7s) with HTTP 409
+  "Operation failed because another operation was already in progress" -- this is
+  Cloud SQL's own per-instance operation concurrency limit, not a filename collision.
+  Documented as a known limitation: firing overlapping manual triggers against the
+  same instance will 409; a normal schedule (e.g. once daily) never encounters this
+  in practice since one export always finishes long before the next is due.
+  The non-overlapping second execution succeeded normally:
+  result: {"export_uri":"gs://example-export-bucket/exports/2026/09/01/example_db-20260901T210219Z.sql.gz",
+           "status":"DONE"}
+
+Proves: the automation path is real end-to-end (not just deployed), correctly waits
+for actual completion instead of a fixed guess, and produces a unique object per run.

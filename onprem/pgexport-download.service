@@ -1,0 +1,20 @@
+[Unit]
+Description=Download the latest Cloud SQL export from GCS
+Wants=network-online.target
+After=network-online.target
+
+[Service]
+Type=oneshot
+# Dedicated, low-privilege OS user -- never run this as root. Create with:
+#   useradd --system --no-create-home --shell /usr/sbin/nologin pgexport
+User=pgexport
+Group=pgexport
+EnvironmentFile=/etc/pgexport/pgexport.env
+ExecStart=/opt/pgexport/download_export.sh
+
+# Hardening: this unit only needs outbound HTTPS and to write to DEST_DIR/LOG_FILE.
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/var/backups/pgexport /var/log
+PrivateTmp=true

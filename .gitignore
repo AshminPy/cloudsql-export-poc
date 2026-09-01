@@ -1,0 +1,25 @@
+# Terraform
+terraform/.terraform/
+terraform/.terraform.lock.hcl.bak
+terraform/*.tfstate
+terraform/*.tfstate.backup
+terraform/*.tfplan
+terraform/crash.log
+terraform/terraform.tfvars
+terraform/*.tfstate.lock.info
+
+# Secrets / key material -- never commit
+*-key.json
+*-key*.json
+service-account*.json
+onprem/*.env
+onprem/downloader-key*.json
+
+# Downloaded test artifacts (evidence/ keeps small, sanitized proof files intentionally
+# -- raw dumps and unsanitized command output should not be committed)
+evidence/*.sql
+evidence/*.sql.gz
+evidence/raw-*
+
+# macOS
+.DS_Store

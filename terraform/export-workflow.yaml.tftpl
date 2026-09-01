@@ -1,0 +1,115 @@
+main:
+  params: [args]
+  steps:
+    - init:
+        assign:
+          - project_id: $${args.project_id}
+          - instance_name: $${args.instance_name}
+          - database_name: $${args.database_name}
+          - bucket: $${args.bucket}
+          - api_version: "${sqladmin_api_version}"
+          - raw_ts: $${time.format(sys.now())}
+          - ts_no_dash: $${text.replace_all(raw_ts, "-", "")}
+          - ts_no_colon: $${text.replace_all(ts_no_dash, ":", "")}
+          - ts_parts: $${text.split(ts_no_colon, ".")}
+          - compact_ts: $${ts_parts[0] + "Z"}
+          - year: $${text.substring(compact_ts, 0, 4)}
+          - month: $${text.substring(compact_ts, 4, 6)}
+          - day: $${text.substring(compact_ts, 6, 8)}
+          - object_path: $${"exports/" + year + "/" + month + "/" + day + "/" + database_name + "-" + compact_ts + ".sql.gz"}
+          - export_uri: $${"gs://" + bucket + "/" + object_path}
+          # v1 and v1beta4 use DIFFERENT URL structures -- confirmed live via Google's
+          # own API discovery document (sqladmin.googleapis.com/discovery/v1/apis/
+          # sqladmin/v1/rest): v1's real path has no "/sql/" segment
+          # (sqladmin.googleapis.com/v1/projects/...), while v1beta4 does
+          # (sqladmin.googleapis.com/sql/v1beta4/projects/...). Assuming the same
+          # "/sql/" prefix for both, as an earlier version of this workflow did,
+          # produces a real 404 for v1 -- that is what looked like "v1 doesn't work"
+          # before this was traced to the URL, not the API version itself.
+          - export_base_url: $${"https://sqladmin.googleapis.com/sql/" + api_version + "/projects/" + project_id}
+          # Both declared here, not just inside the loop below: Workflows' compiler
+          # statically rejects a step after a for-loop referencing a variable that
+          # was only ever assigned inside that loop's body.
+          - operationStatus: {}
+          - reachedDone: false
+
+    - useV1UrlIfApplicable:
+        switch:
+          - condition: $${api_version == "v1"}
+            assign:
+              - export_base_url: $${"https://sqladmin.googleapis.com/v1/projects/" + project_id}
+
+    # Every run gets a unique, timestamped object path -- this is what makes repeated
+    # scheduled runs safe. Google's own Cloud SQL Admin API documentation states an
+    # export can be accepted and then fail if the target GCS object already exists;
+    # a fixed filename risks exactly that on a second run.
+    - startExport:
+        call: http.post
+        args:
+          url: $${export_base_url + "/instances/" + instance_name + "/export"}
+          auth:
+            type: OAuth2
+          body:
+            exportContext:
+              kind: "sql#exportContext"
+              fileType: "SQL"
+              uri: $${export_uri}
+              databases: [$${database_name}]
+              offload: true
+        result: exportResponse
+
+    - setOperation:
+        assign:
+          - operation_name: $${exportResponse.body.name}
+
+    # Poll instead of assuming a fixed wait -- an offloaded export's duration depends
+    # on how long Google takes to provision the temporary instance plus the actual
+    # database size, not a constant. 10s interval, 60 attempts = 10 minute cap, well
+    # above every offloaded export duration measured in this repo's own testing.
+    # Workflows does not allow jumping out of a for-loop to an arbitrary step label --
+    # `next: break` is the only way out early, and it falls through to whichever step
+    # follows this one in the main sequence (checkTimeout below).
+    - pollUntilDone:
+        for:
+          value: attempt
+          range: [1, 60]
+          steps:
+            - wait:
+                call: sys.sleep
+                args:
+                  seconds: 10
+            - checkOperation:
+                call: http.get
+                args:
+                  url: $${export_base_url + "/operations/" + operation_name}
+                  auth:
+                    type: OAuth2
+                result: operationStatus
+            - evaluateStatus:
+                switch:
+                  - condition: $${operationStatus.body.status == "DONE"}
+                    steps:
+                      - markDone:
+                          assign:
+                            - reachedDone: true
+                      - stopPolling:
+                          next: break
+
+    - checkTimeout:
+        switch:
+          - condition: $${reachedDone == false}
+            raise:
+              message: "Export operation did not reach DONE within the poll window"
+              operation: $${operation_name}
+
+    - checkError:
+        switch:
+          - condition: $${"error" in operationStatus.body}
+            raise: $${operationStatus.body.error}
+
+    - result:
+        return:
+          object_path: $${object_path}
+          export_uri: $${export_uri}
+          operation_name: $${operation_name}
+          status: $${operationStatus.body.status}

@@ -1,0 +1,15 @@
+[Unit]
+Description=Check for a new Cloud SQL export every 10 minutes and download it if found
+
+[Timer]
+# No fixed "wait N minutes then download" assumption -- offloaded export duration
+# varies with database size and isn't predictable enough to hardcode a delay against.
+# Instead this runs frequently; download_export.sh is idempotent (it tracks the last
+# object it downloaded and exits cleanly with nothing to do if no new export exists
+# yet), so a tight interval costs nothing extra and never double-processes an export.
+OnCalendar=*:0/10
+Persistent=true
+RandomizedDelaySec=30
+
+[Install]
+WantedBy=timers.target

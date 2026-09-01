@@ -1,0 +1,21 @@
+SANITIZED POC EVIDENCE -- identifiers replaced with placeholders, facts preserved.
+
+Test: trigger a non-offloaded Cloud SQL export (offload: false / omitted) against the
+same instance and database, for direct comparison with the offloaded export.
+
+Result (operation, polled to completion):
+  status: DONE
+  error field present: false
+  duration: ~11 seconds
+
+Proves: a non-offloaded export runs directly against the primary instance and
+finishes far faster than an offloaded export (~11s vs ~2m35s on the same tiny test
+database) -- because it skips provisioning a temporary instance. This is the concrete
+trade-off behind Google's own guidance to offload only when avoiding load on the
+primary matters more than export speed.
+
+Also confirmed: the dump header from BOTH the offloaded and non-offloaded export
+reads "Dumped by pg_dump version 15.18" -- the current Cloud SQL export
+implementation shells out to a real pg_dump in both modes, which is the most likely
+explanation for why triggers, functions, and a stored procedure all survived in this
+test (see 08-validation-results.txt), contradicting Google's own documentation.

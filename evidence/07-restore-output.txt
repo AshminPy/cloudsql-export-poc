@@ -1,0 +1,47 @@
+SANITIZED POC EVIDENCE -- no real identifiers appear in this output; included as-is.
+
+Test: restore the downloaded dump into a clean local PostgreSQL 15 database
+(`createdb example_restore_test && psql -d example_restore_test -f <dump>.sql`).
+
+Output (abridged to the meaningful lines):
+CREATE FUNCTION
+CREATE FUNCTION
+CREATE TABLE
+CREATE SEQUENCE
+ALTER SEQUENCE
+CREATE TABLE
+CREATE TABLE
+CREATE VIEW
+CREATE SEQUENCE
+ALTER SEQUENCE
+CREATE TABLE
+CREATE SEQUENCE
+ALTER SEQUENCE
+CREATE SEQUENCE
+ALTER SEQUENCE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+COPY 24
+COPY 10
+COPY 14
+COPY 12
+ALTER TABLE  (x5, primary key / unique / FK constraints)
+CREATE INDEX
+CREATE INDEX
+CREATE TRIGGER
+CREATE PROCEDURE
+ALTER TABLE
+ALTER TABLE
+ERROR:  role "cloudsqlsuperuser" does not exist   <- the ONLY error, on a Cloud-SQL-
+                                                       internal GRANT statement that
+                                                       has no equivalent on a plain
+                                                       PostgreSQL server. Expected and
+                                                       harmless on a real Cloud SQL
+                                                       restore target (the role
+                                                       exists there).
+
+Proves: every real schema object and every row of data restored without error. The
+one failure is a Cloud-SQL-specific role grant that doesn't apply outside Cloud SQL,
+not a data or schema problem.

@@ -1,0 +1,23 @@
+SANITIZED POC EVIDENCE -- identifiers replaced with placeholders, facts preserved.
+
+Test: download a completed export using onprem/download_export.sh, with NO
+GOOGLE_APPLICATION_CREDENTIALS and no service-account key file set -- only an
+already-authenticated `gcloud` user session (`gcloud auth login`, done once).
+
+Run 1 (new export available):
+  2026-09-01T21:05:31Z starting export download from gs://example-export-bucket/exports/
+  2026-09-01T21:05:33Z downloading gs://example-export-bucket/exports/2026/09/01/example_db-20260901T210219Z.sql.gz -> ./example_db-20260901T210219Z.sql.gz
+  2026-09-01T21:05:36Z OK: downloaded and verified ./example_db-20260901T210219Z.sql.gz (2793 bytes)
+  2026-09-01T21:05:36Z done
+  exit code: 0
+
+Run 2 (immediately after, no new export since):
+  2026-09-01T21:05:45Z starting export download from gs://example-export-bucket/exports/
+  2026-09-01T21:05:46Z no new export since last run (latest is still gs://.../example_db-20260901T210219Z.sql.gz) -- nothing to do
+  exit code: 0
+
+Separately verified: gzip -t on the downloaded file -> integrity OK.
+
+Proves: the manual download workflow needs no key file, works with a normal
+authenticated gcloud session, and is idempotent -- safe to run on a tight schedule
+without double-processing or erroring when no new export exists yet.
